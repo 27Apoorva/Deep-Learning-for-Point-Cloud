@@ -74,9 +74,13 @@ def load_data():
     # get the data paths
     train_path = os.path.join(data_path, "0000000000.txt")
     train_data = read_words(train_path)
+    train_data_array = np.asarray(train_data)
+    len_data = len(train_data) / 4
+    train_data_array = np.reshape(train_data_array, (len_data, 4))
+    train_data_array = train_data_array[:,:-1]
+    pdb.set_trace()
     print("train data")
     print(train_data[:3])
-    pdb.set_trace()
     return train_data
 
 train_data = load_data()
