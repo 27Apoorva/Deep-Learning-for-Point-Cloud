@@ -1,0 +1,333 @@
+\documentclass[a4paper,11pt]{article}
+
+% Add style file.
+\usepackage{explanation}
+
+% Add bib file for literature.
+\addbibresource{explanation.bib}
+
+\title{Implementing Deep Visual Odometry\\{\large Final Task of the course \emph{Implementing ANNs with Tensorflow}}}
+\author{Rasmus Diederichsen \and Christian Heiden \and Alexander Mock\\\and \href{mailto:rdiederichse@uos.de}{rdiederichse@uos.de}\and \href{mailto:cheiden@uos.de}{cheiden@uos.de} \and \href{mailto:amock@uos.de}{amock@uos.de}}
+
+\begin{document}
+
+% Title
+\maketitle
+
+
+% --------------------- %
+% SECTION: INTRODUCTION %
+% --------------------- %
+\section{Introduction}
+\label{sec:introduction}
+% TODO: Explain how visual odometry is useful
+% TODO: Explain the structure of this paper
+In robotics, the localization of a robot within its environment is an essential task. Especially in the days of autonomously driving vehicles this field of research receives a significant amount of attention. There are many ways to perform robot localization and usually several methods are used at the same time in order to improve reliability of the whole system. The main task of a localization algorithm is to repeatedly estimate the current pose of the robot. A pose is a 6-\emph{d} vector containing the $x$, $y$, $z$ positional values, as well as the \emph{yaw}, \emph{pitch}, and \emph{roll} values representing the rotation of the robot.
+
+One approach of relative localization is \emph{odometry}. In most applications
+odometry denotes the usage of wheel or motor movement data for estimating the
+change in position over time (similar method to the speed estimation in a car).
+Other sensors such as interial measurement units (IMUs) can also be fused with
+odometry data. This method only provides relative localization which in this
+case means that the starting point of the robot is used as a reference position.
+In other words all estimated poses are in a coordinate system which is initially
+defined by the starting pose. \autoref{fig:reference_frame} depicts a
+graphical explanation of the localization algorithm where the arrows show the
+change of the position over time.
+
+
+\begin{figure}[tbh]
+    \centering
+    \includegraphics[width=0.2\linewidth]{reference_frame.pdf}
+    \caption{Graphical explanation of the estimated positions of the robot over time. The starting position defines the center of the reference coordinate system.}
+    \label{fig:reference_frame}
+\end{figure}
+
+Another relative localization approach is \emph{visual} odometry which tries to
+fulfill the same goal as simple odometry but instead of motor or wheel
+movements, it uses camera images. Classic approaches use techniques like optical
+flow or feature matching between successive images in order to determine a
+direction of movement between those two points in time.
+
+The method we are going to present in this work is a visual odometry-based
+approach but uses deep learning for determining the change of movement between
+successive images. The original paper by Wang \etal{} \cite{wang2017deepvo} was
+published in 2017 and describes the structure of a deep neural network
+and evaluates its performance on the well-known KITTI dataset
+which contains camera images and pose estimations of a car (a detailed
+explanation is given in \autoref{sec:deepvo:original}.
+
+This paper is structured as follows. \autoref{sec:deepvo:original} presents
+the idea and structure of the DeepVO Network and
+\autoref{sec:deepvo:approach} gives a short explanation of how we
+implemented it in TensorFlow. \autoref{sec:evaluation:data} will elaborate
+on how we gathered data for training and testing. In
+\autoref{sec:evaluation:results} we present the training behavior and
+performance results of the our DeepVO implementation.
+
+
+% --------------- %
+% SECTION: DeepVO %
+% --------------- %
+\section{DeepVO Model}
+\label{sec:deepvo}
+In this section, the DeepVO network is presented (see \autoref{sec:deepvo:original}) together with our variant implemented in TensorFlow (see \autoref{sec:deepvo:approach}).
+
+
+% -------------------------- %
+% SUBSECTION: ORIGINAL PAPER %
+% -------------------------- %
+\subsection{Original Paper}
+\label{sec:deepvo:original}
+
+\begin{figure}[tbh]
+    \centering
+    \includegraphics[width=\linewidth]{network.pdf}
+    \caption{The structure of the network. Figure taken from \cite{wang2017deepvo}.}
+    \label{fig:network}
+\end{figure}
+
+% TODO: Explain the deepVO model
+
+The architecture for end-to-end learning of robot pose estimation is a recurrent
+CNN where the convolutional portion is based on FlowNetSimple \cite{flownet} to
+estimate the optical flow between successive images. The convolutional layers
+are shown in \autoref{tab:cnn}
+shows the network. Two successive images are stacked together and labeled with
+the second image's pose. The stacked tensor is fed into the CNN to learn
+features and estimate the optical flow. Subsequent LSTM layers are used to learn
+consistent pose estimates from several timesteps in the past. The LSTM cells are
+equipped with 1000 memory units.
+
+\begin{table}
+    \centering
+    \caption{FlowNet CNN layers}
+    \label{tab:cnn}
+    \begin{tabular}{cccrc}
+        Layer & kernel size & strides & filters & activation\\\hline
+        1     & 7           & 2       & 64      & reLU\\
+        2     & 5           & 2       & 128     & reLU\\
+        3     & 5           & 2       & 256     & reLU\\
+        4     & 3           & 1       & 256     & reLU\\
+        5     & 3           & 2       & 512     & reLU\\
+        6     & 3           & 1       & 512     & reLU\\
+        7     & 3           & 2       & 512     & reLU\\
+        8     & 3           & 1       & 512     & reLU\\
+        9     & 3           & 2       & 1024    & -\\\hline
+    \end{tabular}
+\end{table}
+
+Not mentioned in the paper, a dense sigmoid layer with 6 output units is added
+to map the LSTM state onto three translation and rotation values.
+
+The training loss is given as the mean squared error between network output and
+target pose, summed over batch and time dimensions.
+\begin{align}
+    L(\text{Batch}; \theta) = \frac{1}{B} \sum^{B}_{i=1} \sum^{T}_{k=1}
+    \Vert\hat{p}_{i,k} - p_{i,k} \Vert^2 + \kappa \Vert \hat{\phi}_{i,k} - \phi_{i,k} \Vert^2
+\end{align}
+
+where $\kappa$ is introduced as a weighting factor since translational and
+rotational units are not directly comparable. \cite{wang2017deepvo} use the
+Adagrad optimizer with a learning rate of 0.001. Futher parameters such as the
+batch size, sequence length, dropout details, and dropout details are
+missing from the paper.
+
+A pretrained FlowNet model is used to speed up convergence.
+
+% -------------------- %
+% SUBSECTION: APPROACH %
+% -------------------- %
+\subsection{Our Approach}
+\label{sec:deepvo:approach}
+% TODO: Explain how we implemented the model described in the paper
+% TODO: --> This includes other implementations we found on the web? or problems we had, or simply stuff we did'nt know better
+
+Our implementation attempts to follow \cite{wang2017deepvo} and thus implements
+all details from the paper, including loading FlowNet weights.
+However, we were not able guess some hyperparameters
+used for training. Hyperparameter optimization was also hampered by the fact
+that it appears to be impossible to train this architecture with reasonable
+layer sizes even on a powerful Tesla Volta GPU with 16GB of VRAM. Already on
+small batch sizes ($\sim 10$) and sequence lengths ($\sim 10$), the network cannot be
+trained even with a reduction of the LSTM state sizes. This observation calls
+into question the claim that \cite{wang2017deepvo} trained the network on a
+single K80 GPU.
+
+While the paper makes no mention of treating angle differences in any particular
+way in the loss function, we ensured the angular difference between estimate and
+target rotation is always in the range $[-\pi,\pi]$. Without special
+consideration, the difference between e.g. $1^\circ$ and $359^\circ$ would come out as
+$358^\circ$ instead of $-2^\circ$. We thus compute the difference in the rotational
+component as
+\begin{align}
+    \text{diff}(\hat{\phi}_i,\phi_i) = \atantwo\left(\sin\hat{\phi}_i - \phi_i,
+    \cos{\hat{\phi}_i -\phi_i}\right)
+\end{align}
+
+This ensures the difference will have the proper sign and be in the interval
+$[-\pi,\pi]$.
+
+% -------------------- %
+% SUBSECTION: SOFTWARE %
+% -------------------- %
+\subsection{Overview of the software}
+\label{sec:deepvo:software}
+
+Our code is written for for Python 3.6 against the 1.4 version of TensorFlow. A
+conda environment specification is provided in \texttt{tfenv.txt} for
+convenience. The code is heavily documented with Sphinx and the numpydoc plugin,
+and documentation in various formats can be created by running \texttt{make} from the
+\texttt{doc/} directory.
+
+The purpose of the individual source files is as follows:
+\begin{itemize}
+    \item \texttt{main.py} -- Access to the training procedure
+    \item \texttt{data\_manager.py} -- Data loading from disk
+    \item \texttt{flownet.py} -- Global data for loading FlowNet weights
+    \item \texttt{model.py} -- Definition of the main RCNN class
+    \item \texttt{performance\_visualizer.py} -- Plotting functions for network performance
+    \item \texttt{preprocess\_data.py} -- Preprocessing routines for data type
+        conversion and mean-normalization
+    \item \texttt{utils.py} -- Miscellaneous utilities.
+\end{itemize}
+
+More details are provided in the compiled documentation (simply open
+\texttt{index.html}).
+
+% ------------------- %
+% SECTION: EVALUATION %
+% ------------------- %
+\section{Training \& Evaluation}
+\label{sec:evaluation}
+In this Section the data acquisition for training and testing is presented (see
+\autoref{sec:evaluation:data}), as well as the training progress and its
+performance results (see \autoref{sec:evaluation:results}).
+
+
+% --------------------------- %
+% SUBSECTION: DATA ACQUISTION %
+% --------------------------- %
+\subsection{Data Acquisition}
+\label{sec:evaluation:data}
+\begin{figure}[htb]
+    \centering
+    \begin{subfigure}[t]{0.6\linewidth}
+            \centering
+            \includegraphics[width=0.7\linewidth]{robot_small.jpg}
+            \caption[]{The ceres robot used for data acquisition.}
+            \label{fig:robot}
+    \end{subfigure}
+    \begin{subfigure}[t]{0.39\linewidth}
+            \centering
+            \includegraphics[width=0.55\linewidth]{image_pair.png}
+            \caption[]{Exemplary successive images taken from the robots camera.}
+            \label{fig:camera_images}
+    \end{subfigure}
+    \caption[]{Both figures depict the setup of our data acquisition.}
+    \label{fig:setup}
+\end{figure}
+
+In order to train the DeepVO model we have to gather data. While the paper used the well known \emph{KITTI} \footnote{\url{http://www.cvlibs.net/datasets/kitti/eval_odometry.php}} dataset for training, we decided to create our own dataset. The reason is that our main motivation for that particular project lies in the field of robotics. The resulting visual odometry system should be deployed on the robots of the \emph{Knowledge-based Systems} group. One of those robots, called \emph{ceres}, is shown in Figure~\ref{fig:robot}. Besides plenty of other sensors the robot carries a camera and an odometer. While the robot is in motion, the latter sensor returns a current relative pose with respect to the robots starting position (see Section~\ref{sec:introduction}). Additionally the raw sensor data is processed with an \emph{extended Kalman-Filter} (EKF) in order to eliminate errors. This localization setup is well-tested throughout many robotic applications, works very reliably and thus provides good ground truth data for our training labels.
+
+The actual data acquisition is done by simply driving around with the robot in our lab and record the poses form the EKF and the images from the camera. The recording is done with the tool \emph{rosbag} which is part of the \emph{Robot Operating System}\footnote{\url{http://ros.org/}} (ROS), a micro-service based framework frequently used for robotic applications. Regarding the camera, we have no control over the exposure time, rendering images that might be affected strongly by lighting conditions. In order to reduce that problem, we only used indoor lightning and sealed the windows.
+After recording all the data we have to create image-pose pairs as a prior step to creating sequences of robot movements. For that we wrote a ROS node (ROS slang for a program more or less) in C++ that finds matches between images and poses depending on their timestamps. In the past we sometimes faced problems with timestamps that were off slightly. This may have been caused by overloaded machines running the actual hardware drivers and thusly create timestamps to late. Manual inspection always showed senseful data, but of course this validation technique is random and therefore missing potential errors. This could be a possible point of error for later investigation.
+The node will create matching single files for every image and pose as we had serious memory problems loading all image matrices at once. Despite loading all matrices from the hard disk, the data loading is quite fast still.
+
+As a next step we have to pre-process the images. First the images are converted to float such that the RGB values lie in $[0,1]$. Also we calculate the mean for each of the RGB channels and subtract it from every image in order to further normalize the data.
+
+
+% In difference to the original paper we use datasets generated by a robot. This
+% robot is equiped with sensors. A wheel rotation sensor is used to estimate the
+% odometry of the robot. Furthermore, the odometry is fused with the
+% acceleration sensor data of an IMU to the ground trouth pose. A camera is
+% recording while the whole sensor data is stored in a 'bag-File', which is a
+% well known storage format in the robotics, exspecially in ROS (Robot
+% operatation system) environments. With the program 'bag_to_cam_pose_data',
+% this bag-file can be converted to our specific training data format. Each
+% image and pose is stored as a numpy array in the directories 'images' and
+% 'poses'.
+
+
+\subsubsection{Data Handling}
+% Bild?
+% [:-1]
+% [1:]
+% [0,1,2,3] -> [[0,1],[1,2],[2,3]]
+
+\begin{figure}[tbh]
+    \centering
+    \includegraphics[width=0.6\linewidth]{stacking.png}
+    \caption{Explantion images stacked pairwise. The numbers are the indices of the images.}
+    \label{fig:image_stacking}
+\end{figure}
+The deepVO model is trained by pairwise stacked images in a sequence. Each batch contains a preset number of these sequences. The \texttt{DataManager} is used to arrange the data in this format. Each image has to be stacked with its previous image. This operation is performed by an index shift over the list of images as depicted in \autoref{fig:image_stacking}. Each batch includes different non overlapping sequences of image stacks and
+poses. Each image stack is labeled by a seperate pose, which is relative to the
+first pose of the sequence.
+This is calculated by the difference of the current pose in the sequence and the first pose to get the relative distance of these two poses. The angle distance of angle a and b is defined as:
+
+\begin{equation}
+ d(a,b) = \atantwo(\sin(a-b), \cos(a-b))
+\end{equation}
+
+In the DataManager batches are seperated in training and test batches. The
+parameter \texttt{train\_test\_ratio} determines the ratio of training to testing
+batches and defaults to 70\% training batches and 30\% test batches. After an
+epoch the training batches and test batches are be shuffled in order to avoid learning
+sequential relationships. Because of the high memory consumption of the deepVO model,
+the DataManager has to spare the memory by loading only the currently required batches.
+
+
+% --------------------------- %
+% SUBSECTION: TRAINING        %
+% --------------------------- %
+\subsection{Training}
+\label{sec:evaluation:training}
+
+For training, we evaluated minimal parameters on a 1050Ti GTX card with 4GB of
+VRAM, as well as a parallel computer with 56 Intel Xeon cpus (which turned out
+to be useless), and, lastly, several AWS P2 and P3 instances, with Tesla K80 and
+V100 cards, respectively. However, we were not able to obtain useful results in
+the limited time available to us, since practical parameter combinations quickly
+exceeded any GPU memory.
+
+
+% ------------------- %
+% SUBSECTION: RESULTS %
+% ------------------- %
+\subsection{Results}
+\label{sec:evaluation:results}
+
+We were unable to really put the network through its paces due to hardware and
+temporal limitations. As \autoref{fig:losses} shows, we are able to learn simple
+forward-backward motions without orientation changes. On this small dataset, the
+network is likely to overfit, since many inputs are identical and similar convergence can be
+observed on a larger dataset. On more realistic data with a lot of fast
+rotations, we were unable to properly evaluate the performance of the network.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\linewidth]{losses.pdf}
+    \caption{Losses over time on \texttt{forward\_backward\_short} with 100
+    memory size, 2 batch size, 6 sequence length and 0.001 learning rate}
+    \label{fig:losses}
+\end{figure}
+
+% ---------------------- %
+% SUBSECTION: GREETINGS %
+% ---------------------- %
+% \section{Room for Nonsense}
+% \label{sec:nonsense}
+% The authors would like to thank Thomes Wiemann for repeatedly failing to follow
+% through on his promise to secure an Nvidia hardware grant in order to obtain a
+% potent graphics card.
+
+
+% --------------------- %
+% SECTION: BIBLIOGRAPHY %
+% --------------------- %
+\newpage
+\printbibliography
+
+
+\end{document}
