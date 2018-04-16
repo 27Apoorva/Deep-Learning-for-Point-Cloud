@@ -108,7 +108,6 @@ def main():
             print('Epoch {e+1} of {args.epochs}')
             # reset state after each batch of consecutive sequences
             states = None
-            
             for images, poses in data_manager.batches():
                 print('inside for')
                 _, our_loss, states = model.train(session, images, poses, initial_states=states)

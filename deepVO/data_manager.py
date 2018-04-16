@@ -69,7 +69,7 @@ class DataManager(object):
         self.dtype        = dtype
         self.debug        = debug
         self.dataset_path = dataset_path
-        self.images_path  = join(dataset_path, 'image_00/data/')
+        self.images_path  = join(dataset_path, 'image_02/data/')
         self.poses_path   = join(dataset_path, 'poses/')
             # import pdb; pdb.set_trace()
         image_files = glob(join(self.images_path,'*.png'))
@@ -80,10 +80,10 @@ class DataManager(object):
         self.num_dec_file = sum(c.isdigit() for c in os.path.basename(image_files[0]))
 
         self.image_file_template = join(self.images_path)
-        self.pose_file_template  =join(self.poses_path + '00.txt')
+        self.pose_file_template  = join(self.poses_path + '01.txt')
         print('pose_file_template',self.pose_file_template)
 
-        init_image = self.loadImage(00)
+        init_image = self.loadImage(0)
         if resize_to_width is not None:
             width_ratio = resize_to_width / init_image.shape[1]
             scaled_height = np.floor(init_image.shape[0] * width_ratio)
@@ -91,20 +91,21 @@ class DataManager(object):
 
         self.H = init_image.shape[0]
         self.W = init_image.shape[1]
-        self.C = 3
-        # import pdb; pdb.set_trace()
+        self.C = init_image.shape[2]
+
+        import pdb; pdb.set_trace()
         self.sequence_length = sequence_length
         self.batch_size = batch_size
-        # self.chunk_size = self.batch_size * self.sequence_length
-        self.chunk_size = 10
+        self.chunk_size = self.batch_size * self.sequence_length
+        # self.chunk_size = 10
 
         self.batch_positions = np.arange(0,self.N,self.chunk_size)
 
         self.num_batches = self.batch_positions.shape[0]
-        # self.num_batches_train = int(self.batch_positions.shape[0] * train_test_ratio)
-        self.num_batches_train = 80
-        # self.num_batches_test = self.num_batches - self.num_batches_train
-        self.num_batches_test =  self.sequence_length - self.num_batches_train
+        self.num_batches_train = int(self.batch_positions.shape[0] * train_test_ratio)
+        # self.num_batches_train = 80
+        self.num_batches_test = self.num_batches - self.num_batches_train
+        # self.num_batches_test =  self.sequence_length - self.num_batches_train
 
         self.batch_positions_train = self.batch_positions[:self.num_batches_train]
         self.batch_positions_test = self.batch_positions[self.num_batches_train:]
@@ -117,11 +118,8 @@ class DataManager(object):
         self.shuffleBatches()
 
         # additional frames needed depending on sequence length
-        # self.batch_images = np.empty(
-        #     [self.batch_size, self.sequence_length, self.H, self.W, self.C * 2],
-        #     dtype=dtype
-        # )
-        self.batch_images = np.empty([self.batch_size, self.sequence_length, self.H, self.W],dtype=dtype)
+        self.batch_images = np.empty([self.batch_size, self.sequence_length, self.H, self.W, self.C * 2],dtype=dtype)
+        # self.batch_images = np.empty([self.batch_size, self.sequence_length, self.H, self.W],dtype=dtype)
 
 
         self.batch_poses = np.empty([self.batch_size, self.sequence_length -1, 12])
@@ -181,34 +179,35 @@ class DataManager(object):
             Labels with shape depending on training batch size and sequence size
         '''
         # 1D length of batch_size times sequence length
-        # for batch_start_idx in self.batch_positions_train:
-        for batch_start_idx in range(5):
+        for batch_start_idx in self.batch_positions_train:
+            import pdb; pdb.set_trace()
+        # for batch_start_idx in range(5):
             print('inside for batches:    ::                ::         ::')
             record_in_batch = 0
             continue_var = False
-            # for sequence_start_idx in range(batch_start_idx, batch_start_idx +self.chunk_size,self.sequence_length):
-            #
-            #     sequence_end_idx = sequence_start_idx + self.sequence_length + 1
-            #     if sequence_end_idx >= self.NTrain:
-            #         continue_var = True
-            #         break
-                # image_indices = np.arange(sequence_start_idx, sequence_end_idx)
-            image_indices = np.arange(0, 114)
+            for sequence_start_idx in range(batch_start_idx, batch_start_idx +self.chunk_size,self.sequence_length):
+
+                sequence_end_idx = sequence_start_idx + self.sequence_length + 1
+                if sequence_end_idx >= self.NTrain:
+                    continue_var = True
+                    break
+                image_indices = np.arange(sequence_start_idx, sequence_end_idx)
+            # image_indices = np.arange(0, 114)
 
             # generate sequences
-            images = self.loadImages(image_indices)
-            poses  = self.loadPoses(image_indices)
+                images = self.loadImages(image_indices)
+                poses  = self.loadPoses(image_indices)
            # import pdb; pdb.set_trace()
-            # self.batch_images[record_in_batch, ..., :3] = images[:-1]
-            # self.batch_images[record_in_batch, ..., 3:] = images[1:]
-            self.batch_images[record_in_batch,...,] = images
+                self.batch_images[record_in_batch, ..., :3] = images[:-1]
+                self.batch_images[record_in_batch, ..., 3:] = images[1:]
+                # self.batch_images[record_in_batch,...,] = images
 
             # subtract first pose from all
             # absolute pose to first pose
-            self.batch_poses[record_in_batch, ...] = self._subtract_poses(poses[1:], poses[0])
-            record_in_batch += 1
-            if(record_in_batch == 2):
-                continue_var = True
+                self.batch_poses[record_in_batch, ...] = self._subtract_poses(poses[1:], poses[0])
+                record_in_batch += 1
+                # if(record_in_batch == 2):
+                #     continue_var = True
                 # break
 
             # print('poses in batches function:', poses)
@@ -304,12 +303,14 @@ class DataManager(object):
                 List of ids to fetch
         '''
         # idss = np.arange(0,self.N)
+        print("inside load ImgaeS:")
+        import pdb; pdb.set_trace()
         num_images = len(ids)
-        images     = np.empty([num_images, self.H, self.W], dtype=self.dtype)
+        images     = np.empty([num_images, self.H, self.W, self.C], dtype=self.dtype)
         for idx in range(0, num_images):
             # right colors:
             # import pdb; pdb.set_trace()
-            img = self.loadImage(idx)
+            img = self.loadImage(ids[idx])
             if img.shape != (self.H, self.W, self.C):
                 images[idx] = resize(img, output_shape=(self.H, self.W), preserve_range=True)
             else:
@@ -336,7 +337,7 @@ class DataManager(object):
         # poses     = np.empty([num_poses, 12])
         poses = np.empty([num_poses,12], dtype=self.dtype)
         for idx in range(0, num_poses):
-            poses[idx] = self.loadPose(idx)
+            poses[idx] = self.loadPose(ids[idx])
         print ("poses:               ",poses)
         print ("poses:               ",poses.shape)
         return poses

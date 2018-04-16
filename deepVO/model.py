@@ -83,15 +83,15 @@ class VOModel(object):
         ############################################################################################
         with tf.variable_scope('inputs'):
             h, w, c = image_shape
-            self.input_images = tf.placeholder(tf.float32, shape=[9,sequence_length, h, w, 2 * c],name='imgs')
+            self.input_images = tf.placeholder(tf.float32, shape=[None,sequence_length, h, w, 2 * c],name='imgs')
             if resize_images:
                 self.input_images = resize_to_multiple(self.images, 64)
 
-            self.target_poses = tf.placeholder(tf.float32, shape=[9,sequence_length, 6],name='target_poses')
+            self.target_poses = tf.placeholder(tf.float32, shape=[None,sequence_length, 6],name='target_poses')
             # this placeholder is used for feeding both the cell and hidden states of both lstm
             # cells. The cell state comes before the hidden state
             N_lstm = 2
-            self.lstm_states = tf.placeholder(tf.float32, shape=(N_lstm, 2,9,memory_size),name='LSTM_states')
+            self.lstm_states = tf.placeholder(tf.float32, shape=(N_lstm, 2,None,memory_size),name='LSTM_states')
             self.batch_size = tf.placeholder(tf.int32, shape=[], name='batch_size')
             print("w:",self.input_images.name)
         ############################################################################################
