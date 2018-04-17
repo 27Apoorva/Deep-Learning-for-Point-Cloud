@@ -274,6 +274,8 @@ class DataManager(object):
             str_append = '00'
         elif len(str(id)) == 2:
             str_append = '0'
+        elif len(str(id)) == 3:
+
 
         #img = np.squeeze(Image.open(join(self.image_file_template + '.png')))
         img = np.squeeze(Image.open(self.image_file_template + img_temp+str_append+str(id)+'.png'))
