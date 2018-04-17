@@ -69,7 +69,7 @@ class DataManager(object):
         self.dtype        = dtype
         self.debug        = debug
         self.dataset_path = dataset_path
-        self.images_path  = join(dataset_path, 'image_02/data/')
+        self.images_path  = join(dataset_path, '01/image_2/')
         self.poses_path   = join(dataset_path, 'poses/')
             # import pdb; pdb.set_trace()
         image_files = glob(join(self.images_path,'*.png'))
@@ -93,7 +93,7 @@ class DataManager(object):
         self.W = init_image.shape[1]
         self.C = init_image.shape[2]
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         self.sequence_length = sequence_length
         self.batch_size = batch_size
         self.chunk_size = self.batch_size * self.sequence_length
@@ -122,7 +122,7 @@ class DataManager(object):
         # self.batch_images = np.empty([self.batch_size, self.sequence_length, self.H, self.W],dtype=dtype)
 
 
-        self.batch_poses = np.empty([self.batch_size, self.sequence_length -1, 12])
+        self.batch_poses = np.empty([self.batch_size, self.sequence_length , 6])
 
         if self.debug:
             print('DataManager found %d images and poses in dataset.' % self.N)
@@ -180,9 +180,9 @@ class DataManager(object):
         '''
         # 1D length of batch_size times sequence length
         for batch_start_idx in self.batch_positions_train:
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
         # for batch_start_idx in range(5):
-            print('inside for batches:    ::                ::         ::')
+            # print('inside for batches:    ::                ::         ::')
             record_in_batch = 0
             continue_var = False
             for sequence_start_idx in range(batch_start_idx, batch_start_idx +self.chunk_size,self.sequence_length):
@@ -213,8 +213,8 @@ class DataManager(object):
             # print('poses in batches function:', poses)
 
         if not continue_var:
-            print("self.batch_images",self.batch_images)
-            print("self.batch_poses",self.batch_poses)
+            # print("self.batch_images",self.batch_images)
+            # print("self.batch_poses",self.batch_poses)
             yield self.batch_images, self.batch_poses
 
     def test_batches(self):
@@ -269,7 +269,7 @@ class DataManager(object):
             Image
         '''
         str_append = ''
-        img_temp = '0000000'
+        img_temp = '000'
         if len(str(id)) == 1:
             str_append = '00'
         elif len(str(id)) == 2:
@@ -303,8 +303,8 @@ class DataManager(object):
                 List of ids to fetch
         '''
         # idss = np.arange(0,self.N)
-        print("inside load ImgaeS:")
-        import pdb; pdb.set_trace()
+        # print("inside load ImgaeS:")
+        # import pdb; pdb.set_trace()
         num_images = len(ids)
         images     = np.empty([num_images, self.H, self.W, self.C], dtype=self.dtype)
         for idx in range(0, num_images):
@@ -320,7 +320,7 @@ class DataManager(object):
     def loadPose(self, id):
         '''Loads pose for id'''
         # print('loadPose:',self.pose_file_template)
-        data = np.loadtxt(self.pose_file_template, delimiter=' ')
+        data = np.loadtxt(self.pose_file_template, delimiter=',')
         # print('loadPose data may beeeeeeeeee:', data)
         return data[id,:]
 
@@ -333,13 +333,13 @@ class DataManager(object):
     def loadPoses(self, ids):
         '''Loads multiple poses'''
         num_poses = len(ids)
-        print( "num_poses: ",num_poses)
+        # print( "num_poses: ",num_poses)
         # poses     = np.empty([num_poses, 12])
-        poses = np.empty([num_poses,12], dtype=self.dtype)
+        poses = np.empty([num_poses,6], dtype=self.dtype)
         for idx in range(0, num_poses):
             poses[idx] = self.loadPose(ids[idx])
-        print ("poses:               ",poses)
-        print ("poses:               ",poses.shape)
+        # print ("poses:               ",poses)
+        # print ("poses:               ",poses.shape)
         return poses
 
     def shuffleBatches(self):

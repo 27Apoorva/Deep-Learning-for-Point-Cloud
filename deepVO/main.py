@@ -105,7 +105,7 @@ def main():
         best_loss = None
         losses = []
         for e in range(args.epochs):
-            print('Epoch {e+1} of {args.epochs}')
+            print('Epoch {e+1} of {args.epochs}',args.epochs)
             # reset state after each batch of consecutive sequences
             states = None
             for images, poses in data_manager.batches():
@@ -119,7 +119,10 @@ def main():
             count = 0
             states = None
             for images, poses in data_manager.test_batches():
-                y_t, y_r, _loss, states = model.test(session, images, poses, initial_states=states)
+                # y_t, y_r, _loss, states = model.test(session, images, poses, initial_states=states)
+                y,_loss,states = model.test(session, images, poses, initial_states=states)
+                # if len(params) > 2:
+                #     _loss = params[1]
                 avg_loss += _loss
                 count += 1
 
@@ -132,7 +135,7 @@ def main():
                 save_path = saver.save(session, model_filename)
                 print('Model saved in file: {model_filename}')
 
-            print('Average test loss across {count} batches: {avg_loss:04.5f}')
+            print('Average test loss across {count} batches: {avg_loss:04.5f}',count , avg_loss)
 
             data_manager.shuffleBatches()
 

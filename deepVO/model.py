@@ -77,7 +77,7 @@ class VOModel(object):
         self.use_dropout = use_dropout
         self.use_flownet = use_flownet
         self.sequence_length = sequence_length
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
         ############################################################################################
         #                                          Inputs                                          #
         ############################################################################################
@@ -402,9 +402,10 @@ class VOModel(object):
             initial_states = tensor_from_lstm_tuple(self.get_zero_state(session, batch_size))
 
         fetches = [self.predictions, self.loss, self.rnn_state]
-        y_t, y_r, loss, states = session.run(fetches,
-                                             feed_dict={self.batch_size: batch_size,
-                                                        self.target_poses: pose_batch,
-                                                        self.input_images: input_batch,
-                                                        self.lstm_states: initial_states})
-        return y_t, y_r, loss, states
+        # import pdb; pdb.set_trace()
+        # y_t, y_r, loss, states = session.run(fetches,
+        #                                      feed_dict={self.batch_size: batch_size,
+        #                                                 self.target_poses: pose_batch,
+        #                                                 self.input_images: input_batch,
+        #                                                 self.lstm_states: initial_states})
+        return session.run(fetches,feed_dict={self.batch_size: batch_size,self.target_poses: pose_batch,self.input_images: input_batch,self.lstm_states: initial_states})
