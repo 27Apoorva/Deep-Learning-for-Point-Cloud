@@ -264,7 +264,9 @@ class Kitty(object):
 
     def _set_next_trajectory(self, isTraining):
         print 'in _set_next_trajectory, current_trj_index is %d'%self._current_trajectory_index
+        import pdb; pdb.set_trace()
         if (self._current_trajectory_index < len(self._current_trajectories)-1):
+        # if(True):
             self._prev_trajectory_index = self._current_trajectory_index
             self._current_trajectory_index += 1
             self._current_initial_frame = 0
@@ -277,6 +279,7 @@ class Kitty(object):
             self._prev_trajectory_index = self._current_trajectory_index
             self._current_trajectory_index = 0
             self._current_initial_frame = 0
+            # self._current_trajectory_index += 1
 
     def get_next_batch(self, isTraining):
         """ Function that returns the batch for dataset
@@ -300,6 +303,7 @@ class Kitty(object):
             read_img, read_path = self.get_image(self._current_trajectories[self._current_trajectory_index], self._current_initial_frame + self._config.time_steps)
 
             if (read_img is None):
+            # if(True ):
                 self._set_next_trajectory(isTraining)
             for i in range(self._current_initial_frame, self._current_initial_frame + self._config.time_steps):
                 img1, img1_path = self.get_image(self._current_trajectories[self._current_trajectory_index], i)
@@ -389,10 +393,10 @@ def inference():
 	    print(len(output))
             for i in range(len(output)):
                 fh = open("output_file","a")
-                fh.write("%f %f %f\n"%(ground_truth_batch[:,i,0],ground_truth_batch[:,i,1],ground_truth_batch[:,i,2])) #str(read_img) + str(pose) + '\n')
+                fh.write("%f %f %f\n"%(ground_truth_batch[:,i,0],ground_truth_batch[:,i,1],ground_truth_batch[:,i,2],ground_truth_batch[:,i,3],ground_truth_batch[:,i,4],ground_truth_batch[:,i,5])) #str(read_img) + str(pose) + '\n')
                 fh.close()
                 fh = open("estimated","a")
-                fh.write("%f %f %f\n"%(output[i][0,0],output[i][0,1],output[i][0,2])) #str(read_img) + str(pose) + '\n')
+                fh.write("%f %f %f\n"%(output[i][0,0],output[i][0,1],output[i][0,2],output[i][0,3],output[i][0,4],output[i][0,5])) #str(read_img) + str(pose) + '\n')
                 fh.close()
                 fh = open("img_file_names\n","a")
                 fh.write(str(img_path_batch[0][i])) #str(read_img) + str(pose) + '\n')
@@ -504,27 +508,28 @@ def main():
     test_writer = tf.summary.FileWriter(MODEL_DIR + 'test')
     # Training and Testing Loop
     #for i in range(global_step, global_step + config.num_steps):
-    # i = 0
+    i = 0
     while kitty_data._current_train_epoch < 5:
-        print(kitty_data._current_train_epoch)
-        for i in range(global_step, global_step + config.num_steps):
-            print('step : %d'%i)
-            if i % 10 == 0:  # Record summaries and test-set accuracy
-                batch_x, batch_y, path = kitty_data.get_next_batch(isTraining=False)
-                print batch_y
-                summary, acc = sess.run(
-                        [merged, loss_op], feed_dict={input_data:batch_x, labels_:batch_y})
-                test_writer.add_summary(summary, i)
-                print('Accuracy at step %s: %s' % (i, acc))
-            else:  # Record train set summaries, and train
-                batch_x, batch_y,path = kitty_data.get_next_batch(isTraining=True)
-                summary, _ = sess.run(
-                    [merged, train_op], feed_dict={input_data:batch_x, labels_:batch_y})
-                train_writer.add_summary(summary, i)
-                train_loss = sess.run(loss_op,
-                        feed_dict={input_data:batch_x, labels_:batch_y})
-                print('Train_error at step %s: %s' % (i, train_loss))
-        # i += 1
+        print('current_train_epoch: %d'%kitty_data._current_train_epoch)
+        # # for i in range(global_step, global_step + config.num_steps):
+        # for i in range(global_step, 2):
+        print('step : %d'%i)
+        if i % 10 == 0:  # Record summaries and test-set accuracy
+            batch_x, batch_y, path = kitty_data.get_next_batch(isTraining=False)
+            # print batch_y
+            summary, acc = sess.run(
+                    [merged, loss_op], feed_dict={input_data:batch_x, labels_:batch_y})
+            test_writer.add_summary(summary, i)
+            print('Accuracy at step %s: %s' % (i, acc))
+        else:  # Record train set summaries, and train
+            batch_x, batch_y,path = kitty_data.get_next_batch(isTraining=True)
+            summary, _ = sess.run(
+                [merged, train_op], feed_dict={input_data:batch_x, labels_:batch_y})
+            train_writer.add_summary(summary, i)
+            train_loss = sess.run(loss_op,
+                    feed_dict={input_data:batch_x, labels_:batch_y})
+            print('Train_error at step %s: %s' % (i, train_loss))
+        i += 1
     save_path = saver.save(sess, MODEL_DIR + 'model')
     print("Model saved in file: %s" % save_path)
     print("epochs trained: " + str(kitty_data._current_train_epoch))
